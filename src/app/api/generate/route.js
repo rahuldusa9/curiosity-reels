@@ -286,8 +286,16 @@ export async function POST(request) {
     });
 
     return Response.json({
-      cards: getSimulatedCards(categories),
-      source: "simulated-offline",
+      cards: [
+        {
+          id: `quota-error-${Date.now()}`,
+          category: "API Cooling Down",
+          text: "Google Gemini API has been paused to prevent over-billing.",
+          subtext: `Please wait ${retryAfterSeconds} seconds for the cooldown to reset.`,
+        },
+        ...getSimulatedCards(categories).slice(0, 3)
+      ],
+      source: "error-quota-cooldown",
       requestId,
       retryAfterSeconds,
     });
@@ -295,10 +303,18 @@ export async function POST(request) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    // If NO API key, simulate offline immediately
+    // Explicitly tell the user the API key is missing instead of pretending it's working
     return Response.json({
-      cards: getSimulatedCards(categories),
-      source: "simulated-offline",
+      cards: [
+        {
+          id: `missing-key-${Date.now()}`,
+          category: "System Error",
+          text: "AI Generation is paused because the API Key is missing on Vercel.",
+          subtext: "Please go to your Vercel Project Settings -> Environment Variables, add GEMINI_API_KEY, and Redeploy.",
+        },
+        ...getSimulatedCards(categories).slice(0, 3)
+      ],
+      source: "error-missing-key",
       requestId,
     });
   }
@@ -368,10 +384,17 @@ export async function POST(request) {
         cooldownUntil,
       });
 
-      // Instead of returning an error, fallback smoothly to dynamic simulated cards
       return Response.json({
-        cards: getSimulatedCards(categories),
-        source: "simulated-offline",
+        cards: [
+          {
+            id: `quota-blocked-${Date.now()}`,
+            category: "API Error",
+            text: "Your Gemini API has exhausted its free-tier usage limit (429).",
+            subtext: "You must add a billing account to Google AI Studio or use a new key.",
+          },
+          ...getSimulatedCards(categories).slice(0, 3)
+        ],
+        source: "error-quota",
         requestId,
       });
     }
