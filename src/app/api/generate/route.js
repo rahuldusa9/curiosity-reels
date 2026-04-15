@@ -8,6 +8,7 @@ let cooldownReason = "";
 
 function logServer(level, event, details = {}) {
   const payload = {
+    
     ts: new Date().toISOString(),
     level,
     event,
