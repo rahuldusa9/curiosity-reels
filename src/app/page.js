@@ -53,10 +53,12 @@ export default function Home() {
       if (Array.isArray(data.cards) && data.cards.length) {
         setCards(data.cards);
       }
-    } catch {
-      setCards(fallbackCards);
+    } catch (err) {
+      // If Vercel entirely rejects the request (e.g. 504), shuffle fallback so UI still feels alive
+      const shuffled = [...fallbackCards].sort(() => 0.5 - Math.random()).slice(0, 8);
+      setCards(shuffled.map((c, i) => ({ ...c, id: `fallback-err-${Date.now()}-${i}` })));
       setSource("fallback-error");
-      setFeedError("Network or API error while loading generated cards");
+      setFeedError(err.message || "Network or API error while loading generated cards");
     } finally {
       setLoading(false);
     }

@@ -259,6 +259,10 @@ function getSimulatedCards(categories) {
   }));
 }
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const maxDuration = 30; // Attempt to increase vercel execution time if needed
+
 export async function POST(request) {
   const requestId =
     typeof crypto !== "undefined" && crypto.randomUUID
