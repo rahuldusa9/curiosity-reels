@@ -135,7 +135,7 @@ export default function Home() {
 
       {activeTab === "feed" ? (
         <>
-          <FeedView cards={cards} onRefresh={fetchCards} loading={loading} />
+          <FeedView key={cards?.[0]?.id || "feed"} cards={cards} onRefresh={fetchCards} loading={loading} />
           {feedError ? (
             <p className="fixed top-16 left-1/2 -translate-x-1/2 z-20 max-w-[90vw] rounded-full border border-amber-300/40 bg-amber-400/15 px-3 py-1 text-xs text-amber-100">
               {feedError}

@@ -357,7 +357,8 @@ export async function POST(request) {
 
     return Response.json({
       cards: cards.slice(0, 8).map((card, idx) => ({
-        id: card.id || `generated-${Date.now()}-${idx}`,
+        // Force a strictly unique ID so React completely rebuilds the UI on new cards
+        id: `generated-${Date.now()}-${idx}-${Math.random()}`,
         category: String(card.category || categories[0] || "general"),
         text: String(card.text || "New perspective unlocked."),
         subtext: String(card.subtext || "Use this reel as a short reflective pause."),
