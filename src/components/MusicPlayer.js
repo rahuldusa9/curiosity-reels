@@ -81,10 +81,10 @@ export default function MusicPlayer({ tracks, preferences, onPreferencesChange }
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="action-btn" onClick={togglePlay} type="button">
+            <button suppressHydrationWarning className="action-btn" onClick={togglePlay} type="button">
               {playing ? "Pause" : "Play"}
             </button>
-            <button className="action-btn" onClick={nextTrack} type="button">
+            <button suppressHydrationWarning className="action-btn" onClick={nextTrack} type="button">
               Next
             </button>
           </div>

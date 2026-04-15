@@ -1,6 +1,4 @@
-import { fallbackCards } from "@/data/fallbackCards";
-
-const MODEL_NAME = "llama3-8b-8192";
+const MODEL_NAME = "llama-3.3-70b-versatile";
 const COOLDOWN_MS = 60 * 1000;
 
 let cooldownUntil = 0;
@@ -8,49 +6,47 @@ let cooldownReason = "";
 
 function logServer(level, event, details = {}) {
   const payload = {
-
     ts: new Date().toISOString(),
     level,
     event,
     ...details,
   };
 
-  const line = JSON.stringify(payload);
+  const line = JSON.stringify(payload, null, 2);
   if (level === "error") {
-    console.error(line);
+    console.error(`[ERROR] ${event}`, line);
     return;
   }
   if (level === "warn") {
-    console.warn(line);
+    console.warn(`[WARN] ${event}`, line);
     return;
   }
-  console.log(line);
+  console.log(`[INFO] ${event}`, line);
 }
 
 function buildPrompt(categories) {
   return [
-    "You write mind-blowing, highly fascinating trivia and facts for a fast-paced discovery app.",
-    "Return valid JSON only. No markdown.",
-    "Return this exact shape: {\"cards\": [ ... ] }.",
-    "Create exactly 8 card objects with keys: id, category, text, subtext.",
-    "Rules:",
-    "- text: max 170 characters. Must start with a jaw-dropping hook or bizarre fact.",
-    "- subtext: max 220 characters. Provide the fascinating explanation, origin, or a cool twist.",
-    "- Tone is awe-inspiring, mysterious, and captivating.",
-    "- NO self-help, NO life advice, NO psychology lessons. Do not sound like a psychologist or coach.",
-    "- Focus purely on: unsolved mysteries, space, obscure history, bizarre biology, paradoxes, and epic engineering.",
-    "- Keep claims broadly verifiable.",
-    `- Categories must come from: ${categories.join(", ")}`,
+    "You are an expert educator and masterful storyteller building an addictive but highly educational discovery app.",
+    "Return valid JSON ONLY. No markdown, no preamble.",
+    "Output format: {\"cards\": [ ... ] }.",
+    "Generate exactly 5 cards with keys: id, category, text, subtext.",
+    "CONTENT RULES:",
+    "1. THE HOOK (text): Max 150 characters. A fascinating question, paradox, or counterintuitive fact to grab attention.",
+    "2. THE DEEP DIVE (subtext): Max 600 characters. Provide a rich, detailed, and highly educational explanation. Teach the user a profound concept in physics, history, biology, or technology. Make them genuinely smarter.",
+    "3. THEME: Fascinating scientific phenomena, pivotal historical moments, deep astrophysics, intricate biology, and brilliant engineering.",
+    "4. TONE: Engaging, informative, inspiring, and profound.",
+    "5. VALUE: Every card must teach a concrete, verifiable concept. The goal is for the user to leave the app significantly more knowledgeable than when they opened it.",
+    `6. Map each card to one of these categories: ${categories.join(", ")}`
   ].join("\n");
 }
 
 function buildPlainTextPrompt(categories) {
   return [
-    "Create exactly 8 mind-blowing trivia facts for a fast-scroll discovery app.",
-    "No JSON. No markdown. One idea per line.",
-    "Each line must be 80 to 170 characters, starting with a crazy hook and ending with a cool explanation.",
-    "NO self-help or psychology advice. Just pure, unadulterated fascinating facts (history, space, nature, etc.).",
-    `Use only these categories in rotation: ${categories.join(", ")}`,
+    "Generate 5 highly educational, fascinating micro-lessons for a discovery app.",
+    "No JSON. One lesson per paragraph.",
+    "Format: [Intriguing Hook] - [Detailed 600-character explanation teaching a profound concept]",
+    "Focus on deep science, pivotal history, and brilliant engineering. Make the user genuinely smarter.",
+    `Categories to use: ${categories.join(", ")}`
   ].join("\n");
 }
 
@@ -164,8 +160,8 @@ async function callGroq({ apiKey, prompt, asJson }) {
       body: JSON.stringify({
         model: MODEL_NAME,
         messages: [{ role: "user", content: prompt }],
-        temperature: asJson ? 0.3 : 0.7,
-        max_completion_tokens: asJson ? 2600 : 1400,
+        temperature: asJson ? 0.4 : 0.7,
+        max_completion_tokens: asJson ? 4000 : 2000,
         ...(asJson ? { response_format: { type: "json_object" } } : {}),
       }),
     },
@@ -174,16 +170,11 @@ async function callGroq({ apiKey, prompt, asJson }) {
   if (!response.ok) {
     const bodyText = await response.text().catch(() => "");
     logServer("error", "groq_http_error", {
-      model: MODEL_NAME,
-      asJson,
       status: response.status,
-      statusText: response.statusText,
-      promptPreview,
       responsePreview: bodyText.slice(0, 600),
     });
-    const error = new Error(`Groq request failed: ${response.status}`);
+    const error = new Error(`Groq request failed: ${response.status}. Reason: ${bodyText.slice(0, 300)}`);
     error.status = response.status;
-    error.responsePreview = bodyText.slice(0, 600);
     throw error;
   }
 
@@ -217,18 +208,6 @@ async function callGroq({ apiKey, prompt, asJson }) {
   };
 }
 
-function getSimulatedCards(categories) {
-  // Shuffle and pick 8 fallback cards
-  const shuffled = [...fallbackCards].sort(() => 0.5 - Math.random()).slice(0, 8);
-  return shuffled.map((c, i) => ({
-    ...c,
-    id: `simulated-${Date.now()}-${Math.random()}`,
-    category: categories[i % categories.length] || "mindset",
-    // Add explicitly visible timestamp so user visually SEES it was refreshed
-    subtext: `${c.subtext} (Offline refresh: ${new Date().toLocaleTimeString()})`,
-  }));
-}
-
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 export const maxDuration = 30; // Attempt to increase vercel execution time if needed
@@ -260,8 +239,7 @@ export async function POST(request) {
           category: "API Cooling Down",
           text: "Groq API has been paused to prevent rate limit hits.",
           subtext: `Please wait ${retryAfterSeconds} seconds for the cooldown to reset.`,
-        },
-        ...getSimulatedCards(categories).slice(0, 3)
+        }
       ],
       source: "error-quota-cooldown",
       requestId,
@@ -271,6 +249,7 @@ export async function POST(request) {
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
+    logServer("error", "missing_api_key", { requestId });
     // Explicitly tell the user the API key is missing instead of pretending it's working
     return Response.json({
       cards: [
@@ -279,8 +258,7 @@ export async function POST(request) {
           category: "System Error",
           text: "AI Generation is paused because the Groq API Key is missing on Vercel.",
           subtext: "Please go to your Vercel Project Settings -> Environment Variables, add GROQ_API_KEY, and Redeploy.",
-        },
-        ...getSimulatedCards(categories).slice(0, 3)
+        }
       ],
       source: "error-missing-key",
       requestId,
@@ -360,8 +338,7 @@ export async function POST(request) {
             category: "API Error",
             text: "Your Groq API has exhausted its rate limit (429).",
             subtext: "Wait a moment and refresh.",
-          },
-          ...getSimulatedCards(categories).slice(0, 3)
+          }
         ],
         source: "error-quota",
         requestId,
@@ -377,8 +354,15 @@ export async function POST(request) {
     });
 
     return Response.json({
-      cards: getSimulatedCards(categories),
-      source: "simulated-offline",
+      cards: [
+        {
+          id: `fatal-error-${Date.now()}`,
+          category: "System Error",
+          text: "The server encountered a fatal error communicating with Groq.",
+          subtext: message || "See server logs for details. No simulated fallback available.",
+        }
+      ],
+      source: "error-fatal",
       requestId,
     });
   }
