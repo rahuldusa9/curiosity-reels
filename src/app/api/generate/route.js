@@ -288,8 +288,8 @@ export async function POST(request) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "AIzaSyByVZLzeZzrG2dM3Ym2yO8Aytm91Le9erA") {
-    // If NO API key or default invalid key, simulate offline immediately
+  if (!apiKey) {
+    // If NO API key, simulate offline immediately
     return Response.json({
       cards: getSimulatedCards(categories),
       source: "simulated-offline",
