@@ -22,6 +22,7 @@ export default function Home() {
   const [preferences, setPreferences] = useState(defaultPreferences);
 
   useEffect(() => {
+    // Only load preferences ONCE on mount
     const stored = loadPreferences();
     setPreferences(stored);
   }, []);
@@ -30,16 +31,16 @@ export default function Home() {
     savePreferences(preferences);
   }, [preferences]);
 
-  const fetchCards = useCallback(async () => {
+  // Use a ref so we don't trigger fetchCards every time preferences change
+  const fetchCards = useCallback(async (currentCategories) => {
     setLoading(true);
     setFeedError("");
     try {
-      // Added a random cache-buster timestamp specifically for Vercel edge/network caches
       const response = await fetch(`/api/generate?_t=${Date.now()}`, {
         method: "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categories: preferences.categories }),
+        body: JSON.stringify({ categories: currentCategories }),
       });
 
       if (!response.ok) throw new Error("Failed to fetch feed");
@@ -55,7 +56,6 @@ export default function Home() {
         setCards(data.cards);
       }
     } catch (err) {
-      // If Vercel entirely rejects the request (e.g. 504), shuffle fallback so UI still feels alive
       const shuffled = [...fallbackCards].sort(() => 0.5 - Math.random()).slice(0, 8);
       setCards(shuffled.map((c, i) => ({ ...c, id: `fallback-err-${Date.now()}-${i}` })));
       setSource("fallback-error");
@@ -63,17 +63,19 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [preferences.categories]);
+  }, []);
 
   useEffect(() => {
-    void fetchCards();
-  }, [fetchCards]);
+    // Fetch only once precisely on mount to avoid infinite API loops
+    void fetchCards(defaultPreferences.categories);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRegenerate = useCallback(async () => {
-    await fetchCards();
-    // After successfully fetching new cards, automatically switch back to the Feed tab!
+    // Trigger this ONLY explicitly on button click
+    await fetchCards(preferences.categories);
     setActiveTab("feed");
-  }, [fetchCards]);
+  }, [fetchCards, preferences.categories]);
 
   const fallbackTracks = useMemo(() => musicCatalog, []);
 
@@ -135,7 +137,7 @@ export default function Home() {
 
       {activeTab === "feed" ? (
         <>
-          <FeedView key={cards?.[0]?.id || "feed"} cards={cards} onRefresh={fetchCards} loading={loading} />
+          <FeedView key={cards?.[0]?.id || "feed"} cards={cards} onRefresh={handleRegenerate} loading={loading} />
           {feedError ? (
             <p className="fixed top-16 left-1/2 -translate-x-1/2 z-20 max-w-[90vw] rounded-full border border-amber-300/40 bg-amber-400/15 px-3 py-1 text-xs text-amber-100">
               {feedError}
