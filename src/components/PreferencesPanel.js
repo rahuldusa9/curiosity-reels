@@ -1,8 +1,11 @@
 "use client";
 
 import { preferenceOptions } from "@/lib/preferences";
+import { useState } from "react";
 
 export default function PreferencesPanel({ preferences, onChange, onRegenerate, loading }) {
+  const [customInput, setCustomInput] = useState("");
+
   function toggleCategory(category) {
     const exists = preferences.categories.includes(category);
     const categories = exists
@@ -11,6 +14,20 @@ export default function PreferencesPanel({ preferences, onChange, onRegenerate, 
 
     if (!categories.length) return;
     onChange({ ...preferences, categories });
+  }
+
+  function addCustomCategory(e) {
+    e.preventDefault();
+    const trimmed = customInput.trim().toLowerCase();
+    if (!trimmed) return;
+    
+    if (!preferences.categories.includes(trimmed)) {
+      onChange({
+        ...preferences,
+        categories: [...preferences.categories, trimmed],
+      });
+    }
+    setCustomInput("");
   }
 
   function applyPreset(type) {
@@ -46,20 +63,42 @@ export default function PreferencesPanel({ preferences, onChange, onRegenerate, 
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {preferenceOptions.map((item) => {
-          const active = preferences.categories.includes(item);
-          return (
+        {preferences.categories.map((item) => (
+          <button
+            className="chip chip-active"
+            key={item}
+            onClick={() => toggleCategory(item)}
+            type="button"
+          >
+            {item} ×
+          </button>
+        ))}
+        {preferenceOptions
+          .filter((item) => !preferences.categories.includes(item))
+          .map((item) => (
             <button
-              className={`chip ${active ? "chip-active" : "chip-muted"}`}
+              className="chip chip-muted"
               key={item}
               onClick={() => toggleCategory(item)}
               type="button"
             >
-              {item}
+              + {item}
             </button>
-          );
-        })}
+          ))}
       </div>
+
+      <form onSubmit={addCustomCategory} className="mt-4 flex gap-2">
+        <input
+          type="text"
+          value={customInput}
+          onChange={(e) => setCustomInput(e.target.value)}
+          placeholder="Add custom topic (e.g. aliens, AI, retro games)"
+          className="flex-1 bg-black/40 border border-white/20 rounded-xl px-3 py-2 text-sm outline-none focus:border-white/50"
+        />
+        <button type="submit" className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+          Add
+        </button>
+      </form>
 
       <div className="mt-4 space-y-3 text-sm">
         <label className="flex items-center justify-between gap-3">
