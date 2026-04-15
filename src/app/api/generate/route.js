@@ -1,6 +1,6 @@
 import { fallbackCards } from "@/data/fallbackCards";
 
-const MODEL_NAME = "gemini-3-flash-preview";
+const MODEL_NAME = "llama3-8b-8192";
 const COOLDOWN_MS = 60 * 1000;
 
 let cooldownUntil = 0;
@@ -150,59 +150,30 @@ function parseCardsFromText(rawText) {
   }
 }
 
-async function callGemini({ apiKey, prompt, asJson }) {
+async function callGroq({ apiKey, prompt, asJson }) {
   const promptPreview = prompt.slice(0, 220);
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`,
+    `https://api.groq.com/openai/v1/chat/completions`,
     {
       method: "POST",
       cache: "no-store",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
       body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: asJson ? 0.3 : 0.7,
-          maxOutputTokens: asJson ? 2600 : 1400,
-          thinkingConfig: {
-            thinkingBudget: 0,
-          },
-          ...(asJson
-            ? {
-                responseMimeType: "application/json",
-                responseSchema: {
-                  type: "object",
-                  properties: {
-                    cards: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          id: { type: "string" },
-                          category: { type: "string" },
-                          text: { type: "string" },
-                          subtext: { type: "string" },
-                        },
-                        required: ["category", "text", "subtext"],
-                      },
-                    },
-                  },
-                  required: ["cards"],
-                },
-              }
-            : {}),
-        },
+        model: MODEL_NAME,
+        messages: [{ role: "user", content: prompt }],
+        temperature: asJson ? 0.3 : 0.7,
+        max_completion_tokens: asJson ? 2600 : 1400,
+        ...(asJson ? { response_format: { type: "json_object" } } : {}),
       }),
     },
   );
 
   if (!response.ok) {
     const bodyText = await response.text().catch(() => "");
-    logServer("error", "gemini_http_error", {
+    logServer("error", "groq_http_error", {
       model: MODEL_NAME,
       asJson,
       status: response.status,
@@ -210,7 +181,7 @@ async function callGemini({ apiKey, prompt, asJson }) {
       promptPreview,
       responsePreview: bodyText.slice(0, 600),
     });
-    const error = new Error(`Gemini request failed: ${response.status}`);
+    const error = new Error(`Groq request failed: ${response.status}`);
     error.status = response.status;
     error.responsePreview = bodyText.slice(0, 600);
     throw error;
@@ -220,32 +191,29 @@ async function callGemini({ apiKey, prompt, asJson }) {
   try {
     data = await response.json();
   } catch (error) {
-    logServer("error", "gemini_invalid_json_response", {
+    logServer("error", "groq_invalid_json_response", {
       model: MODEL_NAME,
       asJson,
       promptPreview,
       message: error instanceof Error ? error.message : "JSON parse failure",
     });
-    throw new Error("Gemini returned non-JSON response");
+    throw new Error("Groq returned non-JSON response");
   }
 
-  const parts = data?.candidates?.[0]?.content?.parts || [];
-  const text = parts
-    .map((part) => (typeof part?.text === "string" ? part.text : ""))
-    .join("\n")
-    .trim();
+  const text = data?.choices?.[0]?.message?.content || "";
+  const finishReason = data?.choices?.[0]?.finish_reason || "UNKNOWN";
 
   if (!text) {
-    logServer("warn", "gemini_empty_text", {
+    logServer("warn", "groq_empty_text", {
       model: MODEL_NAME,
       asJson,
-      finishReason: data?.candidates?.[0]?.finishReason || "UNKNOWN",
+      finishReason,
     });
   }
 
   return {
     text,
-    finishReason: data?.candidates?.[0]?.finishReason || "UNKNOWN",
+    finishReason,
   };
 }
 
