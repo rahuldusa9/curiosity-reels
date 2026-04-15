@@ -20,24 +20,23 @@ export default function ReelCard({ card, index, total }) {
         </div>
 
         <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-white/55">
-          Swipe for a new spark
+          Swipe to detach
         </p>
-        <h2 className="mt-4 text-3xl leading-tight font-semibold text-white text-balance">
+        <h2 className="mt-4 text-3xl leading-tight font-semibold text-white text-balance drop-shadow-md">
           {card.text}
         </h2>
-        <p className="mt-5 text-base leading-relaxed text-white/80">{card.subtext}</p>
+        <p className="mt-5 text-[1.05rem] leading-relaxed text-white/90 font-light">{card.subtext}</p>
 
-        <div className="mt-6 flex items-center gap-2">
-          <span className="reaction-chip">Save</span>
-          <span className="reaction-chip">Reflect</span>
-          <span className="reaction-chip">Share later</span>
+        <div className="mt-8 flex items-center justify-start gap-3">
+          <span className="reaction-chip hover:bg-white/20 transition cursor-pointer">Grounding</span>
+          <span className="reaction-chip hover:bg-white/20 transition cursor-pointer">Breathe</span>
         </div>
       </div>
 
-      <div className="w-full max-w-xl mx-auto flex items-center justify-between text-white/80">
-        <p className="text-sm">AI curiosity reel</p>
-        <p className="text-sm">
-          {index + 1}/{total}
+      <div className="w-full max-w-xl mx-auto flex items-center justify-between text-white/50 text-xs tracking-wider">
+        <p>Curated Detachment</p>
+        <p className="font-mono">
+          {index + 1} / {total}
         </p>
       </div>
     </article>

@@ -1,5 +1,31 @@
 import { fallbackCards } from "@/data/fallbackCards";
 
+const MODEL_NAME = "gemini-3-flash-preview";
+const COOLDOWN_MS = 60 * 1000;
+
+let cooldownUntil = 0;
+let cooldownReason = "";
+
+function logServer(level, event, details = {}) {
+  const payload = {
+    ts: new Date().toISOString(),
+    level,
+    event,
+    ...details,
+  };
+
+  const line = JSON.stringify(payload);
+  if (level === "error") {
+    console.error(line);
+    return;
+  }
+  if (level === "warn") {
+    console.warn(line);
+    return;
+  }
+  console.log(line);
+}
+
 function buildPrompt(categories) {
   return [
     "You create addictive-in-a-good-way curiosity reels for a text-only short feed app.",
@@ -123,8 +149,9 @@ function parseCardsFromText(rawText) {
 }
 
 async function callGemini({ apiKey, prompt, asJson }) {
+  const promptPreview = prompt.slice(0, 220);
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       cache: "no-store",
@@ -172,15 +199,47 @@ async function callGemini({ apiKey, prompt, asJson }) {
   );
 
   if (!response.ok) {
-    throw new Error(`Gemini request failed: ${response.status}`);
+    const bodyText = await response.text().catch(() => "");
+    logServer("error", "gemini_http_error", {
+      model: MODEL_NAME,
+      asJson,
+      status: response.status,
+      statusText: response.statusText,
+      promptPreview,
+      responsePreview: bodyText.slice(0, 600),
+    });
+    const error = new Error(`Gemini request failed: ${response.status}`);
+    error.status = response.status;
+    error.responsePreview = bodyText.slice(0, 600);
+    throw error;
   }
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    logServer("error", "gemini_invalid_json_response", {
+      model: MODEL_NAME,
+      asJson,
+      promptPreview,
+      message: error instanceof Error ? error.message : "JSON parse failure",
+    });
+    throw new Error("Gemini returned non-JSON response");
+  }
+
   const parts = data?.candidates?.[0]?.content?.parts || [];
   const text = parts
     .map((part) => (typeof part?.text === "string" ? part.text : ""))
     .join("\n")
     .trim();
+
+  if (!text) {
+    logServer("warn", "gemini_empty_text", {
+      model: MODEL_NAME,
+      asJson,
+      finishReason: data?.candidates?.[0]?.finishReason || "UNKNOWN",
+    });
+  }
 
   return {
     text,
@@ -188,18 +247,51 @@ async function callGemini({ apiKey, prompt, asJson }) {
   };
 }
 
+function getSimulatedCards(categories) {
+  // Shuffle and pick 8 fallback cards
+  const shuffled = [...fallbackCards].sort(() => 0.5 - Math.random()).slice(0, 8);
+  return shuffled.map((c, i) => ({
+    ...c,
+    id: `simulated-${Date.now()}-${i}`,
+    category: categories[i % categories.length] || "mindset",
+  }));
+}
+
 export async function POST(request) {
+  const requestId =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `req-${Date.now()}`;
+
   const body = await request.json().catch(() => ({}));
   const categories = Array.isArray(body?.categories) && body.categories.length
     ? body.categories.slice(0, 5)
     : ["news", "science", "mindset"];
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (Date.now() < cooldownUntil) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((cooldownUntil - Date.now()) / 1000));
+
+    logServer("warn", "gemini_cooldown_active", {
+      requestId,
+      retryAfterSeconds,
+      cooldownReason,
+    });
+
     return Response.json({
-      cards: fallbackCards,
-      source: "fallback-no-key",
-      error: "Missing GEMINI_API_KEY in .env.local or Vercel env settings",
+      cards: getSimulatedCards(categories),
+      source: "simulated-offline",
+      requestId,
+      retryAfterSeconds,
+    });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "AIzaSyByVZLzeZzrG2dM3Ym2yO8Aytm91Le9erA") {
+    // If NO API key or default invalid key, simulate offline immediately
+    return Response.json({
+      cards: getSimulatedCards(categories),
+      source: "simulated-offline",
+      requestId,
     });
   }
 
@@ -213,12 +305,26 @@ export async function POST(request) {
     let cards = parseCardsFromText(jsonAttempt.text);
 
     if (!cards || jsonAttempt.finishReason === "MAX_TOKENS") {
+      logServer("warn", "gemini_json_attempt_incomplete", {
+        requestId,
+        finishReason: jsonAttempt.finishReason,
+        textPreview: jsonAttempt.text.slice(0, 300),
+      });
+
       const textAttempt = await callGemini({
         apiKey,
         prompt: buildPlainTextPrompt(categories),
         asJson: false,
       });
       cards = parseCardsFromPlainText(textAttempt.text, categories);
+
+      if (!cards || !cards.length) {
+        logServer("error", "gemini_text_attempt_parse_failed", {
+          requestId,
+          finishReason: textAttempt.finishReason,
+          textPreview: textAttempt.text.slice(0, 500),
+        });
+      }
     }
 
     if (!cards || !cards.length) {
@@ -233,15 +339,47 @@ export async function POST(request) {
         subtext: String(card.subtext || "Use this reel as a short reflective pause."),
       })),
       source: "gemini",
+      requestId,
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown generation error";
 
+    const status =
+      error && typeof error === "object" && "status" in error
+        ? Number(error.status)
+        : undefined;
+
+    if (status === 429 || message.includes("429")) {
+      cooldownUntil = Date.now() + COOLDOWN_MS;
+      cooldownReason = message;
+
+      logServer("warn", "gemini_cooldown_started", {
+        requestId,
+        cooldownMs: COOLDOWN_MS,
+        cooldownUntil,
+      });
+
+      // Instead of returning an error, fallback smoothly to dynamic simulated cards
+      return Response.json({
+        cards: getSimulatedCards(categories),
+        source: "simulated-offline",
+        requestId,
+      });
+    }
+
+    logServer("error", "feed_generation_failed", {
+      requestId,
+      message,
+      categories,
+      model: MODEL_NAME,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
     return Response.json({
-      cards: fallbackCards,
-      source: "fallback-error",
-      error: message,
+      cards: getSimulatedCards(categories),
+      source: "simulated-offline",
+      requestId,
     });
   }
 }

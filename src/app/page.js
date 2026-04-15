@@ -46,7 +46,8 @@ export default function Home() {
 
       setSource(data?.source || "unknown");
       if (data?.error) {
-        setFeedError(String(data.error));
+        const trace = data?.requestId ? ` (request: ${data.requestId})` : "";
+        setFeedError(`${String(data.error)}${trace}`);
       }
 
       if (Array.isArray(data.cards) && data.cards.length) {
@@ -94,26 +95,30 @@ export default function Home() {
     <div className="min-h-dvh bg-layer text-white">
       <header className="fixed top-0 left-0 right-0 z-20 px-4 pt-3">
         <div className="mx-auto max-w-xl rounded-2xl border border-white/15 bg-black/35 backdrop-blur-md p-2 flex items-center justify-between">
-          <h1 className="px-2 text-sm tracking-[0.2em] uppercase text-white/85">
-            Curiosity Reels
+          <h1 className="px-2 text-xs tracking-[0.2em] font-medium uppercase text-white/90">
+            Social Detox
           </h1>
-          <p className="text-[10px] uppercase tracking-[0.12em] text-white/70">
-            {loading ? "loading" : source}
+          <p className="text-[10px] uppercase tracking-[0.14em] text-white/60">
+            {loading ? "Aligning..." : source === "simulated-offline" ? "Offline mode" : "Connected"}
           </p>
-          <nav className="flex gap-2">
+          <nav className="flex gap-1.5 bg-black/40 rounded-full p-1 border border-white/5">
             <button
-              className={`tab-btn ${activeTab === "feed" ? "tab-btn-active" : "tab-btn-muted"}`}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-medium tracking-[0.08em] uppercase transition-all ${
+                activeTab === "feed" ? "bg-white text-black shadow-sm" : "text-white/60 hover:text-white"
+              }`}
               onClick={() => setActiveTab("feed")}
               type="button"
             >
-              Discover
+              Feed
             </button>
             <button
-              className={`tab-btn ${activeTab === "preferences" ? "tab-btn-active" : "tab-btn-muted"}`}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-medium tracking-[0.08em] uppercase transition-all ${
+                activeTab === "preferences" ? "bg-white text-black shadow-sm" : "text-white/60 hover:text-white"
+              }`}
               onClick={() => setActiveTab("preferences")}
               type="button"
             >
-              Studio
+              Focus
             </button>
           </nav>
         </div>
