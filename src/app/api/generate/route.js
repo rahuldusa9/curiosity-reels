@@ -8,7 +8,7 @@ let cooldownReason = "";
 
 function logServer(level, event, details = {}) {
   const payload = {
-    
+
     ts: new Date().toISOString(),
     level,
     event,
@@ -29,26 +29,27 @@ function logServer(level, event, details = {}) {
 
 function buildPrompt(categories) {
   return [
-    "You create addictive-in-a-good-way curiosity reels for a text-only short feed app.",
+    "You write mind-blowing, highly fascinating trivia and facts for a fast-paced discovery app.",
     "Return valid JSON only. No markdown.",
     "Return this exact shape: {\"cards\": [ ... ] }.",
     "Create exactly 8 card objects with keys: id, category, text, subtext.",
     "Rules:",
-    "- text: max 170 characters and must start with a strong hook",
-    "- subtext: max 220 characters and must add one practical takeaway",
-    "- Keep claims broadly verifiable and avoid made-up statistics",
-    "- Tone is punchy, surprising, and useful",
-    "- Avoid repeating self-help advice in every card",
-    "- Mix facts, mini-stories, breakthroughs, history twists, and useful trends",
+    "- text: max 170 characters. Must start with a jaw-dropping hook or bizarre fact.",
+    "- subtext: max 220 characters. Provide the fascinating explanation, origin, or a cool twist.",
+    "- Tone is awe-inspiring, mysterious, and captivating.",
+    "- NO self-help, NO life advice, NO psychology lessons. Do not sound like a psychologist or coach.",
+    "- Focus purely on: unsolved mysteries, space, obscure history, bizarre biology, paradoxes, and epic engineering.",
+    "- Keep claims broadly verifiable.",
     `- Categories must come from: ${categories.join(", ")}`,
   ].join("\n");
 }
 
 function buildPlainTextPrompt(categories) {
   return [
-    "Create exactly 8 short curiosity lines for a fast-scroll text reels app.",
+    "Create exactly 8 mind-blowing trivia facts for a fast-scroll discovery app.",
     "No JSON. No markdown. One idea per line.",
-    "Each line must be 80 to 170 characters and include a hook plus one useful insight.",
+    "Each line must be 80 to 170 characters, starting with a crazy hook and ending with a cool explanation.",
+    "NO self-help or psychology advice. Just pure, unadulterated fascinating facts (history, space, nature, etc.).",
     `Use only these categories in rotation: ${categories.join(", ")}`,
   ].join("\n");
 }
