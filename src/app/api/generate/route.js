@@ -247,7 +247,7 @@ export async function POST(request) {
   if (Date.now() < cooldownUntil) {
     const retryAfterSeconds = Math.max(1, Math.ceil((cooldownUntil - Date.now()) / 1000));
 
-    logServer("warn", "gemini_cooldown_active", {
+    logServer("warn", "groq_cooldown_active", {
       requestId,
       retryAfterSeconds,
       cooldownReason,
@@ -258,7 +258,7 @@ export async function POST(request) {
         {
           id: `quota-error-${Date.now()}`,
           category: "API Cooling Down",
-          text: "Google Gemini API has been paused to prevent over-billing.",
+          text: "Groq API has been paused to prevent rate limit hits.",
           subtext: `Please wait ${retryAfterSeconds} seconds for the cooldown to reset.`,
         },
         ...getSimulatedCards(categories).slice(0, 3)
@@ -269,7 +269,7 @@ export async function POST(request) {
     });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     // Explicitly tell the user the API key is missing instead of pretending it's working
     return Response.json({
@@ -277,8 +277,8 @@ export async function POST(request) {
         {
           id: `missing-key-${Date.now()}`,
           category: "System Error",
-          text: "AI Generation is paused because the API Key is missing on Vercel.",
-          subtext: "Please go to your Vercel Project Settings -> Environment Variables, add GEMINI_API_KEY, and Redeploy.",
+          text: "AI Generation is paused because the Groq API Key is missing on Vercel.",
+          subtext: "Please go to your Vercel Project Settings -> Environment Variables, add GROQ_API_KEY, and Redeploy.",
         },
         ...getSimulatedCards(categories).slice(0, 3)
       ],
@@ -288,22 +288,22 @@ export async function POST(request) {
   }
 
   try {
-    const jsonAttempt = await callGemini({
+    const jsonAttempt = await callGroq({
       apiKey,
-      prompt: `${buildPrompt(categories)}\n\nOutput JSON object now.`,
+      prompt: `${buildPrompt(categories)}\n\nRandomness strictly required. Random seed: ${Math.random()}\nOutput JSON object now.`,
       asJson: true,
     });
 
     let cards = parseCardsFromText(jsonAttempt.text);
 
-    if (!cards || jsonAttempt.finishReason === "MAX_TOKENS") {
-      logServer("warn", "gemini_json_attempt_incomplete", {
+    if (!cards || jsonAttempt.finishReason === "length") {
+      logServer("warn", "groq_json_attempt_incomplete", {
         requestId,
         finishReason: jsonAttempt.finishReason,
         textPreview: jsonAttempt.text.slice(0, 300),
       });
 
-      const textAttempt = await callGemini({
+      const textAttempt = await callGroq({
         apiKey,
         prompt: buildPlainTextPrompt(categories),
         asJson: false,
@@ -311,7 +311,7 @@ export async function POST(request) {
       cards = parseCardsFromPlainText(textAttempt.text, categories);
 
       if (!cards || !cards.length) {
-        logServer("error", "gemini_text_attempt_parse_failed", {
+        logServer("error", "groq_text_attempt_parse_failed", {
           requestId,
           finishReason: textAttempt.finishReason,
           textPreview: textAttempt.text.slice(0, 500),
@@ -320,7 +320,7 @@ export async function POST(request) {
     }
 
     if (!cards || !cards.length) {
-      throw new Error("Gemini response could not be parsed into cards");
+      throw new Error("Groq response could not be parsed into cards");
     }
 
     return Response.json({
@@ -331,7 +331,7 @@ export async function POST(request) {
         text: String(card.text || "New perspective unlocked."),
         subtext: String(card.subtext || "Use this reel as a short reflective pause."),
       })),
-      source: "gemini",
+      source: "groq",
       requestId,
     });
   } catch (error) {
@@ -343,11 +343,11 @@ export async function POST(request) {
         ? Number(error.status)
         : undefined;
 
-    if (status === 429 || message.includes("429")) {
+    if (status === 429 || message.includes("429") || message.includes("Rate limit")) {
       cooldownUntil = Date.now() + COOLDOWN_MS;
       cooldownReason = message;
 
-      logServer("warn", "gemini_cooldown_started", {
+      logServer("warn", "groq_cooldown_started", {
         requestId,
         cooldownMs: COOLDOWN_MS,
         cooldownUntil,
@@ -358,8 +358,8 @@ export async function POST(request) {
           {
             id: `quota-blocked-${Date.now()}`,
             category: "API Error",
-            text: "Your Gemini API has exhausted its free-tier usage limit (429).",
-            subtext: "You must add a billing account to Google AI Studio or use a new key.",
+            text: "Your Groq API has exhausted its rate limit (429).",
+            subtext: "Wait a moment and refresh.",
           },
           ...getSimulatedCards(categories).slice(0, 3)
         ],
