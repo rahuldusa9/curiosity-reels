@@ -1,8 +1,18 @@
 import ReelCard from "@/components/ReelCard";
+import { useEffect, useRef } from "react";
 
 export default function FeedView({ cards, onRefresh, loading }) {
+  const containerRef = useRef(null);
+
+  // Force scroll to top whenever the cards data changes
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [cards]);
+
   return (
-    <section className="h-dvh overflow-y-auto snap-y snap-mandatory relative pb-16">
+    <section ref={containerRef} className="h-dvh overflow-y-auto snap-y snap-mandatory relative pb-16">
       {cards.map((card, index) => (
         <ReelCard key={card.id || `${card.category}-${index}`} card={card} index={index} total={cards.length} />
       ))}

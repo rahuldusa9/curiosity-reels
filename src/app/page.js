@@ -34,7 +34,8 @@ export default function Home() {
     setLoading(true);
     setFeedError("");
     try {
-      const response = await fetch("/api/generate", {
+      // Added a random cache-buster timestamp specifically for Vercel edge/network caches
+      const response = await fetch(`/api/generate?_t=${Date.now()}`, {
         method: "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },

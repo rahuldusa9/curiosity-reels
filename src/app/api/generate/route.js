@@ -254,8 +254,10 @@ function getSimulatedCards(categories) {
   const shuffled = [...fallbackCards].sort(() => 0.5 - Math.random()).slice(0, 8);
   return shuffled.map((c, i) => ({
     ...c,
-    id: `simulated-${Date.now()}-${i}`,
+    id: `simulated-${Date.now()}-${Math.random()}`,
     category: categories[i % categories.length] || "mindset",
+    // Add explicitly visible timestamp so user visually SEES it was refreshed
+    subtext: `${c.subtext} (Offline refresh: ${new Date().toLocaleTimeString()})`,
   }));
 }
 
