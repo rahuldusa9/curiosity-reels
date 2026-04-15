@@ -69,6 +69,12 @@ export default function Home() {
     void fetchCards();
   }, [fetchCards]);
 
+  const handleRegenerate = useCallback(async () => {
+    await fetchCards();
+    // After successfully fetching new cards, automatically switch back to the Feed tab!
+    setActiveTab("feed");
+  }, [fetchCards]);
+
   const fallbackTracks = useMemo(() => musicCatalog, []);
 
   useEffect(() => {
@@ -140,7 +146,7 @@ export default function Home() {
         <PreferencesPanel
           preferences={preferences}
           onChange={setPreferences}
-          onRegenerate={fetchCards}
+          onRegenerate={handleRegenerate}
           loading={loading}
         />
       )}
