@@ -32,7 +32,7 @@ function buildPrompt(categories) {
     "Generate exactly 5 cards with keys: id, category, text, subtext.",
     "CONTENT RULES:",
     "1. THE HOOK (text): Max 150 characters. A fascinating question, paradox, or counterintuitive fact to grab attention.",
-    "2. THE DEEP DIVE (subtext): Max 600 characters. Provide a rich, detailed, and highly educational explanation. Teach the user a profound concept in physics, history, biology, or technology. Make them genuinely smarter.",
+    "2. THE DEEP DIVE (subtext): Max 600 characters. Provide a rich, detailed, and highly educational explanation. Teach the user a profound concept in physics, history, biology, or technology. Make them genuinely smarter,dont repeat the content as you dont have memory so give new content such that old one doesnt repeat",
     "3. THEME: Fascinating scientific phenomena, pivotal historical moments, deep astrophysics, intricate biology, and brilliant engineering.",
     "4. TONE: Engaging, informative, inspiring, and profound.",
     "5. VALUE: Every card must teach a concrete, verifiable concept. The goal is for the user to leave the app significantly more knowledgeable than when they opened it.",
