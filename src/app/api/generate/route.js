@@ -35,7 +35,7 @@ function buildPrompt(categories) {
     "2. THE DEEP DIVE (subtext): Max 600 characters. Provide a rich, detailed, and highly educational explanation. Teach the user a profound concept in physics, history, biology, or technology. Make them genuinely smarter,dont repeat the content as you dont have memory so give new content such that old one doesnt repeat",
     "3. THEME: Fascinating scientific phenomena, pivotal historical moments, deep astrophysics, intricate biology, and brilliant engineering.",
     "4. TONE: Engaging, informative, inspiring, and profound.",
-    "5. VALUE: Every card must teach a concrete, verifiable concept. The goal is for the user to leave the app significantly more knowledgeable than when they opened it. strictly keep the content out-of-box such that no other content generating app can match",
+    "5. VALUE: Every card must teach a concrete, verifiable concept. The goal is for the user to leave the app significantly more knowledgeable than when they opened it. strictly keep the content out-of-box such that no other content generating app can match and use simple words",
     `6. Map each card to one of these categories: ${categories.join(", ")}`
   ].join("\n");
 }
