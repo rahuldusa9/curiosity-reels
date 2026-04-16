@@ -1,4 +1,4 @@
-const MODEL_NAME = "llama-3.3-70b-versatile";
+const MODEL_NAME = "openai/gpt-oss-120b";
 const COOLDOWN_MS = 60 * 1000;
 
 let cooldownUntil = 0;
